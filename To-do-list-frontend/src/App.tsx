@@ -25,10 +25,13 @@ const App: React.FC = () => {
   const [status, setStatus] = useState<
     "Sin iniciar" | "En Proceso" | "Completada" | "Anulada"
   >("Sin iniciar");
-  const [filtrarEnProceso, setFiltrarEnProceso] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
+  const [filtroEstado, setFiltroEstado] = useState("");
+  const [filtroFechaLimite, setFiltroFechaLimite] = useState("");
+  const [filtroFechaCompletado, setFiltroFechaCompletado] = useState("");
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
 
   useEffect(() => {
     dispatch(fetchTodos());
@@ -115,6 +118,30 @@ const App: React.FC = () => {
     setStatus("Sin iniciar");
     setFormError(null);
   };
+
+  const getCardBg = (status: string) => {
+    switch (status) {
+      case "Completada":
+        return "#d1e7dd";
+      case "En Proceso":
+        return "#fff3cd";
+      case "Anulada":
+        return "#f8d7da";
+      default:
+        return "#f8f9fa";
+    }
+  };
+
+  // Elimina el estado y el botón de filtrarEnProceso
+  // Elimina la lógica de filtrado que depende de filtrarEnProceso, usa solo los filtros avanzados
+  const tareasFiltradas = todos.filter(
+    (todo) =>
+      (!filtroEstado ||
+        todo.status.toLowerCase().trim() ===
+          filtroEstado.toLowerCase().trim()) &&
+      (!filtroFechaLimite ||
+        (todo.due_date && todo.due_date.slice(0, 10) === filtroFechaLimite))
+  );
 
   return (
     <div
@@ -204,20 +231,54 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
-        <div className="mb-3">
+        <div className="mb-3 d-flex gap-2">
           <button
-            className="btn btn-primary me-2"
+            className="btn btn-primary"
             onClick={() => setShowModal(true)}>
             Agregar
           </button>
           <button
             className="btn btn-outline-secondary"
-            onClick={() => setFiltrarEnProceso((f) => !f)}>
-            {filtrarEnProceso
-              ? "Ver todas las tareas"
-              : 'Ver solo "En proceso"'}
+            onClick={() => setMostrarFiltros((f) => !f)}>
+            <i className="bi bi-funnel me-1"></i> Filtros
           </button>
         </div>
+        {mostrarFiltros && (
+          <div className="card p-3 mb-4">
+            <div className="row g-2">
+              <div className="col-md-6">
+                <select
+                  className="form-select"
+                  value={filtroEstado}
+                  onChange={(e) => setFiltroEstado(e.target.value)}>
+                  <option value="">Todos los estados</option>
+                  <option value="Sin iniciar">Sin iniciar</option>
+                  <option value="En Proceso">En Proceso</option>
+                  <option value="Completada">Completada</option>
+                  <option value="Anulada">Anulada</option>
+                </select>
+              </div>
+              <div className="col-md-6">
+                <input
+                  type="date"
+                  className="form-control"
+                  value={filtroFechaLimite}
+                  onChange={(e) => setFiltroFechaLimite(e.target.value)}
+                />
+              </div>
+              <div className="col-12 mt-2">
+                <button
+                  className="btn btn-secondary w-100"
+                  onClick={() => {
+                    setFiltroEstado("");
+                    setFiltroFechaLimite("");
+                  }}>
+                  Limpiar filtros
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {showModal && (
           <Modal onClose={handleModalClose}>
             <form
@@ -282,48 +343,83 @@ const App: React.FC = () => {
             </div>
           </div>
         ) : (
-          <ul className="list-group">
-            {(filtrarEnProceso
-              ? todos.filter(
-                  (todo) => todo.status.toLowerCase() === "en proceso"
-                )
-              : todos
-            ).map((todo: any) => (
-              <li key={todo.id} className="list-group-item mb-2">
-                <div className="d-flex justify-content-between align-items-center">
-                  <div>
-                    <strong>ID:</strong> {todo.id} <br />
-                    <strong>Título:</strong> {todo.title} <br />
-                    <strong>Descripción:</strong> {todo.description} <br />
-                    <strong>Fecha límite:</strong>{" "}
-                    {todo.due_date ? todo.due_date.slice(0, 10) : "-"} <br />
-                    <strong>Estado:</strong> {todo.status} <br />
-                    <strong>Completado:</strong> {todo.completed ? "Sí" : "No"}{" "}
-                    <br />
+          <>
+            <ul className="list-group">
+              {tareasFiltradas.length === 0 ? (
+                <li className="list-group-item text-center border-0 bg-transparent">
+                  <div className="d-flex flex-column align-items-center animate__animated animate__fadeIn animate__faster">
+                    <i
+                      className="bi bi-emoji-frown display-3 text-secondary mb-2 animate__animated animate__shakeX animate__delay-1s"
+                      style={{ animationDuration: "1s" }}></i>
+                    <div className="fs-5 text-secondary">
+                      No se encontraron tareas con los filtros seleccionados
+                    </div>
                   </div>
-                  <div className="d-flex flex-column gap-2">
-                    <button
-                      className="btn btn-outline-success btn-sm"
-                      onClick={() => handleToggleCompleted(todo.id)}>
-                      {todo.completed
-                        ? "Marcar como pendiente"
-                        : "Marcar como completado"}
-                    </button>
-                    <button
-                      className="btn btn-outline-primary btn-sm"
-                      onClick={() => handleEdit(todo)}>
-                      Editar
-                    </button>
-                    <button
-                      className="btn btn-outline-danger btn-sm"
-                      onClick={() => handleDelete(todo.id)}>
-                      Eliminar
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ) : (
+                tareasFiltradas.map((todo: any) => (
+                  <li key={todo.id} className="list-group-item mb-2">
+                    <div
+                      className="card shadow-sm rounded-3"
+                      style={{ background: getCardBg(todo.status) }}>
+                      <div className="card-body">
+                        <div className="d-flex justify-content-between align-items-center">
+                          <div>
+                            <strong className="fs-5">{todo.title}</strong>
+                            <p className="text-muted mb-1">
+                              {todo.description}
+                            </p>
+                            <p className="text-muted small">
+                              <strong>Fecha límite:</strong>{" "}
+                              {todo.due_date ? todo.due_date.slice(0, 10) : "-"}
+                            </p>
+                            <p className="text-muted small">
+                              <strong>Estado:</strong>{" "}
+                              <span
+                                className={`badge ms-2 ${
+                                  todo.status === "Completada"
+                                    ? "bg-success"
+                                    : todo.status === "En Proceso"
+                                    ? "bg-warning text-dark"
+                                    : todo.status === "Anulada"
+                                    ? "bg-danger"
+                                    : "bg-secondary"
+                                }`}>
+                                {todo.status}
+                              </span>
+                            </p>
+                            <p className="text-muted small">
+                              <strong>Completado:</strong>{" "}
+                              {todo.completed ? "Sí" : "No"}
+                            </p>
+                          </div>
+                          <div className="d-flex flex-column gap-2">
+                            <button
+                              className="btn btn-outline-success btn-sm w-100 m-0"
+                              onClick={() => handleToggleCompleted(todo.id)}>
+                              <i className="bi bi-check-circle me-1"></i>{" "}
+                              {todo.completed ? "Pendiente" : "Completar"}
+                            </button>
+                            <button
+                              className="btn btn-outline-primary btn-sm"
+                              onClick={() => handleEdit(todo)}>
+                              <i className="bi bi-pencil-square me-1"></i>{" "}
+                              Editar
+                            </button>
+                            <button
+                              className="btn btn-outline-danger btn-sm"
+                              onClick={() => handleDelete(todo.id)}>
+                              <i className="bi bi-trash me-1"></i> Eliminar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                ))
+              )}
+            </ul>
+          </>
         )}
       </div>
     </div>
