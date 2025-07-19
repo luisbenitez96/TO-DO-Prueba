@@ -26,6 +26,9 @@ const App: React.FC = () => {
     "Sin iniciar" | "En Proceso" | "Completada" | "Anulada"
   >("Sin iniciar");
   const [filtrarEnProceso, setFiltrarEnProceso] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     dispatch(fetchTodos());
@@ -33,25 +36,37 @@ const App: React.FC = () => {
 
   const handleAddOrEdit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!title || !description || !dueDate) return;
-    const todoData = {
-      title,
-      description,
-      due_date: dueDate,
-      status,
-      completed: false,
-    };
-    if (isEditing && editId !== null) {
-      await dispatch(
-        updateTodoAsync({
-          id: editId,
-          data: todoData,
-        })
-      );
-    } else {
-      await dispatch(addTodoAsync(todoData));
+    setFormError(null);
+    setFormSuccess(null);
+    if (!title.trim() || !description.trim() || !dueDate.trim()) {
+      setFormError("Todos los campos son obligatorios.");
+      return;
     }
-    handleModalClose();
+    try {
+      const todoData = {
+        title,
+        description,
+        due_date: dueDate,
+        status,
+        completed: false,
+      };
+      if (isEditing && editId !== null) {
+        await dispatch(
+          updateTodoAsync({
+            id: editId,
+            data: todoData,
+          })
+        );
+        setFormSuccess("Tarea actualizada correctamente.");
+      } else {
+        await dispatch(addTodoAsync(todoData));
+        setFormSuccess("Tarea agregada correctamente.");
+      }
+      setTimeout(() => setFormSuccess(null), 2000);
+      handleModalClose();
+    } catch (err: any) {
+      setFormError("Ocurrió un error al guardar la tarea.");
+    }
   };
 
   const handleEdit = (todo: any) => {
@@ -65,11 +80,29 @@ const App: React.FC = () => {
   };
 
   const handleToggleCompleted = async (id: number) => {
-    await dispatch(updateTodoStatusAsync(id));
+    const todo = todos.find((t) => t.id === id);
+    if (!todo) return;
+    // Si está completado, lo marcamos como pendiente y status 'En proceso'.
+    // Si no está completado, lo marcamos como completado y status 'Completada'.
+    await dispatch(
+      updateTodoAsync({
+        id,
+        data: {
+          completed: !todo.completed,
+          status: !todo.completed ? "Completada" : "En Proceso",
+        },
+      })
+    );
   };
 
   const handleDelete = async (id: number) => {
-    await dispatch(deleteTodoAsync(id));
+    try {
+      await dispatch(deleteTodoAsync(id));
+      setDeleteSuccess("Tarea eliminada con éxito.");
+      setTimeout(() => setDeleteSuccess(null), 2000);
+    } catch (err) {
+      setFormError("Ocurrió un error al eliminar la tarea.");
+    }
   };
 
   const handleModalClose = () => {
@@ -80,95 +113,219 @@ const App: React.FC = () => {
     setDescription("");
     setDueDate("");
     setStatus("Sin iniciar");
+    setFormError(null);
   };
 
   return (
-    <div>
-      <h1>Lista de Tareas</h1>
-      <button onClick={() => setShowModal(true)}>Agregar</button>
-      <button
-        onClick={() => setFiltrarEnProceso((f) => !f)}
-        style={{ marginLeft: 8 }}>
-        {filtrarEnProceso ? "Ver todas las tareas" : 'Ver solo "En proceso"'}
-      </button>
-      {showModal && (
-        <Modal onClose={handleModalClose}>
-          <form
-            onSubmit={handleAddOrEdit}
-            style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <h2>{isEditing ? "Editar Tarea" : "Nueva Tarea"}</h2>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Título"
-              autoFocus
-            />
-            <input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Descripción"
-            />
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-            />
-            <select
-              value={status}
-              onChange={(e) =>
-                setStatus(
-                  e.target.value as
-                    | "Sin iniciar"
-                    | "En Proceso"
-                    | "Completada"
-                    | "Anulada"
-                )
-              }>
-              {statusOptions.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-              <button type="submit">
-                {isEditing ? "Actualizar" : "Guardar"}
-              </button>
-              <button type="button" onClick={handleModalClose}>
-                Cancelar
-              </button>
+    <div
+      className="d-flex justify-content-center align-items-start min-vh-100"
+      style={{ background: "#f8f9fa" }}>
+      <div className="container py-4" style={{ maxWidth: 600 }}>
+        <h1 className="mb-4">Lista de Tareas</h1>
+        {formSuccess && (
+          <div
+            className="modal fade show"
+            tabIndex={-1}
+            style={{ display: "block", background: "rgba(0,0,0,0.2)" }}>
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content">
+                <div className="modal-body text-center">
+                  <div className="mb-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="48"
+                      height="48"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="green"
+                      strokeWidth="2">
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="green"
+                        strokeWidth="2"
+                        fill="#d1e7dd"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M7 13l3 3 6-6"
+                        stroke="green"
+                        strokeWidth="2.5"
+                      />
+                    </svg>
+                  </div>
+                  <div className="alert alert-success mb-0">{formSuccess}</div>
+                </div>
+              </div>
             </div>
-          </form>
-        </Modal>
-      )}
-      {loading ? (
-        <div>Cargando...</div>
-      ) : (
-        <ul>
-          {(filtrarEnProceso
-            ? todos.filter((todo) => todo.status.toLowerCase() === "en proceso")
-            : todos
-          ).map((todo: any) => (
-            <li key={todo.id}>
-              <strong>ID:</strong> {todo.id} <br />
-              <strong>Título:</strong> {todo.title} <br />
-              <strong>Descripción:</strong> {todo.description} <br />
-              <strong>Fecha límite:</strong>{" "}
-              {todo.due_date ? todo.due_date.slice(0, 10) : "-"} <br />
-              <strong>Estado:</strong> {todo.status} <br />
-              <strong>Completado:</strong> {todo.completed ? "Sí" : "No"} <br />
-              <button onClick={() => handleToggleCompleted(todo.id)}>
-                {todo.completed
-                  ? "Marcar como pendiente"
-                  : "Marcar como completado"}
-              </button>
-              <button onClick={() => handleEdit(todo)}>Editar</button>
-              <button onClick={() => handleDelete(todo.id)}>Eliminar</button>
-              <hr />
-            </li>
-          ))}
-        </ul>
-      )}
+          </div>
+        )}
+        {deleteSuccess && (
+          <div
+            className="modal fade show"
+            tabIndex={-1}
+            style={{ display: "block", background: "rgba(0,0,0,0.2)" }}>
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content">
+                <div className="modal-body text-center">
+                  <div className="mb-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="48"
+                      height="48"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="red"
+                      strokeWidth="2">
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="red"
+                        strokeWidth="2"
+                        fill="#f8d7da"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M7 13l3 3 6-6"
+                        stroke="red"
+                        strokeWidth="2.5"
+                      />
+                    </svg>
+                  </div>
+                  <div className="alert alert-success mb-0">
+                    {deleteSuccess}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="mb-3">
+          <button
+            className="btn btn-primary me-2"
+            onClick={() => setShowModal(true)}>
+            Agregar
+          </button>
+          <button
+            className="btn btn-outline-secondary"
+            onClick={() => setFiltrarEnProceso((f) => !f)}>
+            {filtrarEnProceso
+              ? "Ver todas las tareas"
+              : 'Ver solo "En proceso"'}
+          </button>
+        </div>
+        {showModal && (
+          <Modal onClose={handleModalClose}>
+            <form
+              onSubmit={handleAddOrEdit}
+              className="d-flex flex-column gap-3 p-3 border rounded bg-light"
+              style={{ minWidth: 300 }}>
+              <h2 className="mb-3">
+                {isEditing ? "Editar Tarea" : "Nueva Tarea"}
+              </h2>
+              {formError && (
+                <div className="alert alert-danger py-2">{formError}</div>
+              )}
+              <input
+                className="form-control"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Título"
+                autoFocus
+              />
+              <input
+                className="form-control"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Descripción"
+              />
+              <input
+                className="form-control"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+              <select
+                className="form-select"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as any)}>
+                {statusOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+              <div className="d-flex gap-2 mt-2">
+                <button className="btn btn-success" type="submit">
+                  {isEditing ? "Actualizar" : "Guardar"}
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  type="button"
+                  onClick={handleModalClose}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </Modal>
+        )}
+        {loading ? (
+          <div
+            className="d-flex justify-content-center align-items-center"
+            style={{ height: 100 }}>
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Cargando...</span>
+            </div>
+          </div>
+        ) : (
+          <ul className="list-group">
+            {(filtrarEnProceso
+              ? todos.filter(
+                  (todo) => todo.status.toLowerCase() === "en proceso"
+                )
+              : todos
+            ).map((todo: any) => (
+              <li key={todo.id} className="list-group-item mb-2">
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong>ID:</strong> {todo.id} <br />
+                    <strong>Título:</strong> {todo.title} <br />
+                    <strong>Descripción:</strong> {todo.description} <br />
+                    <strong>Fecha límite:</strong>{" "}
+                    {todo.due_date ? todo.due_date.slice(0, 10) : "-"} <br />
+                    <strong>Estado:</strong> {todo.status} <br />
+                    <strong>Completado:</strong> {todo.completed ? "Sí" : "No"}{" "}
+                    <br />
+                  </div>
+                  <div className="d-flex flex-column gap-2">
+                    <button
+                      className="btn btn-outline-success btn-sm"
+                      onClick={() => handleToggleCompleted(todo.id)}>
+                      {todo.completed
+                        ? "Marcar como pendiente"
+                        : "Marcar como completado"}
+                    </button>
+                    <button
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={() => handleEdit(todo)}>
+                      Editar
+                    </button>
+                    <button
+                      className="btn btn-outline-danger btn-sm"
+                      onClick={() => handleDelete(todo.id)}>
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 };
