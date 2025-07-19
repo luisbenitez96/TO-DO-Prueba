@@ -25,6 +25,7 @@ const App: React.FC = () => {
   const [status, setStatus] = useState<
     "Sin iniciar" | "En Proceso" | "Completada" | "Anulada"
   >("Sin iniciar");
+  const [filtrarEnProceso, setFiltrarEnProceso] = useState(false);
 
   useEffect(() => {
     dispatch(fetchTodos());
@@ -85,6 +86,11 @@ const App: React.FC = () => {
     <div>
       <h1>Lista de Tareas</h1>
       <button onClick={() => setShowModal(true)}>Agregar</button>
+      <button
+        onClick={() => setFiltrarEnProceso((f) => !f)}
+        style={{ marginLeft: 8 }}>
+        {filtrarEnProceso ? "Ver todas las tareas" : 'Ver solo "En proceso"'}
+      </button>
       {showModal && (
         <Modal onClose={handleModalClose}>
           <form
@@ -139,7 +145,10 @@ const App: React.FC = () => {
         <div>Cargando...</div>
       ) : (
         <ul>
-          {todos.map((todo: any) => (
+          {(filtrarEnProceso
+            ? todos.filter((todo) => todo.status.toLowerCase() === "en proceso")
+            : todos
+          ).map((todo: any) => (
             <li key={todo.id}>
               <strong>ID:</strong> {todo.id} <br />
               <strong>Título:</strong> {todo.title} <br />
